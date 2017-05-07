@@ -1,0 +1,184 @@
+<html lang="en">
+<head>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+    <!--<script  src="static/js/sensors.js"></script>-->
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/modules/exporting.js"></script>
+    <meta charset="UTF-8">
+    <title></title>
+    <style>
+        .msg-box {
+            border: 1px solid #ddd;
+            width: 500px; height: 300px;
+            overflow-y: scroll;
+        }  
+    </style>
+</head>
+<body>
+    <!-- UI -->
+    <br/>
+    <input id="fanon-btn" type="button" value="on"/><br/><br/>
+    <input id="fanoff-btn" type="button" value="off"/><br/>
+    <!-- Messages -->
+    <div id="msg-box" class="msg-box"></div>
+    <div id="container" style="min-width: 310px; height: 400px; margin: 0 auto"></div>
+
+    <script>
+    $(function(){
+        var arr = [];
+        var arrt = [];
+        //arrt.forEach((currentValue,index)=>arrayAll.push([currentValue,arr[index]]));
+        var showObj = {
+            host: location.host,
+            socket: null,
+            // 開啟一個 WebSocket 連線，並設定相關動作
+            init: function(){
+                var url = "ws://" + showObj.host + "/ws";
+                showObj.socket = new WebSocket(url);
+                console.log('123');
+                showObj.socket.onmessage = function(event){
+                    console.log('onmessage');
+                    console.log(JSON.parse(event.data));
+                    var msg = JSON.parse(event.data);
+                    console.log(Object.keys(msg));
+                    $.each(msg, function(key, value){
+                        if(key == 'type'){
+                            if(value == 'sensors'){
+                                if (!(msg.temperature[0] === undefined)) {
+                                    var a= [];
+                                    a.push(msg.temperature[0].datetime);
+                                    a.push(msg.temperature[0].temp);
+                                    arr.push(a);
+                                }
+                            //var temp = msg.temperature[0].temp;
+                            //var temptime = msg.temperature[0].datetime;
+                            }
+                            if(value == 'sunset'){
+                            //var temp = msg.sunset[0].temp;
+                            //var temptime = msg.temperature[0].datetime;
+                            }
+                            if(value == 'actors'){
+                            //var temp = msg.temperature[0].temp;
+                            //var temptime = msg.temperature[0].datetime;
+                            }
+                        }
+                    });
+                },
+               // console.log(arr);
+                //console.log(arrt);
+                showObj.socket.onclose = function(event){
+                    console.log("on close");
+                },
+                showObj.socket.onerror = function(event){
+                    console.log("on error");
+                }
+            },
+            // 發送訊息至 Server 端
+            sendMsg: function(txt){
+                showObj.socket.send(txt);
+            },
+            // 顯示訊息
+            showMsg: function(document){
+                $("#msg-box").append(document + "<br/>");
+            }
+        };
+
+        
+       showObj.init();
+        //console.log(arr);
+        //var arr = [['2013-11-20 15:00:00',3],['2013-11-20 16:00:00',11],['2013-11-20 17:00:00',0],['2013-11-20 18:00:00',3],['2013-11-20 19:00:00',4],['2013-11-20 20:00:00',40],['2013-11-20 21:00:00',2],['2013-11-20 22:00:00',11],['2013-11-20 23:00:00',1],['2013-11-21 00:00:00',5],['2013-11-21 01:00:00',40]];
+        var defaultDataNum = 5; // how many points displayed each time
+        var currentDataPos = defaultDataNum; // the current position of data we process with now
+        var chart;
+        setTimeout(function(){
+        Highcharts.chart('container', {
+        chart: {
+            type: 'spline',
+            animation: Highcharts.svg, // don't animate in old IE
+            marginRight: 10,
+            events: {
+                load: function () {
+                    // set up the updating of the chart each second
+                            var series = this.series[0];
+                            var intervalId = setInterval(function() {
+                                series.addPoint(arr[currentDataPos], true, true);
+                                currentDataPos++;
+                                // stop update when finish display all data
+                                if(currentDataPos == arr.length)
+                                   clearInterval(intervalId);
+                            }, 1000);
+                }
+            }
+        },
+        title: {
+            text: 'Live temperature data'
+        },
+        xAxis: {
+            type: 'text',
+            tickPixelInterval: 150,
+            categories: (function() {
+                var data = [];
+                for (i = 0; i < arr.length; i++) {
+                    data.push(arr[i][0]);
+                }
+                return data;
+                })()
+        },
+        yAxis: {
+            title: {
+                text: 'temperature'
+            },
+            plotLines: [{
+                value: 0,
+                width: 1,
+                color: '#808080'
+            }]
+        },
+        tooltip: {
+            formatter: function () {
+                    return '<b>' + this.series.name + '</b><br/>' +
+                    this.x +'<br/>' +
+                    Highcharts.numberFormat(this.y, 2);
+            }
+        },
+        legend: {
+            enabled: false
+        },
+        exporting: {
+            enabled: false
+        },
+        series: [{
+            name: '溫感一號',
+            data: (function() {
+                    var data = [];
+                    console.log('123' + arr);
+                    // display the first defaultDataNum points in the beginning
+                    for (i = 0; i < defaultDataNum; i++) {
+                        console.log('123' + arr);
+                        console.log(arr[i]);
+                        data.push(arr[i]);
+                    }
+                    return data;
+                })()
+        }]
+    });
+    }, 2000);
+            var btn = $("#fanon-btn");
+            var btn2 = $("#fanoff-btn");
+            // 綁定按鈕 click 時發送訊息
+            btn.click(function(){
+                showObj.sendMsg('f_0001 ON');
+                console.log("success send fan on");
+                return false;
+            });
+            btn2.click(function(){
+                showObj.sendMsg('f_0001 OFF');
+                console.log("success send fan off");
+                return false;
+            });
+        });
+    </script>
+</body>
+</html>
+
